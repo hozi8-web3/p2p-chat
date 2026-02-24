@@ -15,7 +15,10 @@ impl DiscoveryManager {
     /// Initializes the mDNS daemon.
     pub fn new(my_identity: String) -> Result<Self> {
         let daemon = ServiceDaemon::new()?;
-        Ok(Self { daemon, my_identity })
+        Ok(Self {
+            daemon,
+            my_identity,
+        })
     }
 
     /// Broadcasts our presence on the local network.

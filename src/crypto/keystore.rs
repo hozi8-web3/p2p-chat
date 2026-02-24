@@ -15,11 +15,11 @@ impl KeyStore {
     pub fn new() -> Result<Self> {
         let mut path = dirs::data_local_dir().context("Failed to find local data directory")?;
         path.push(APP_DIR);
-        
+
         if !path.exists() {
             fs::create_dir_all(&path).context("Failed to create app data directory")?;
         }
-        
+
         path.push(KEY_FILE);
         Ok(Self { key_path: path })
     }
@@ -29,9 +29,12 @@ impl KeyStore {
         if self.key_path.exists() {
             let bytes = fs::read(&self.key_path).context("Failed to read identity key file")?;
             if bytes.len() != 32 {
-                anyhow::bail!("Invalid key file length: expected 32 bytes, got {}", bytes.len());
+                anyhow::bail!(
+                    "Invalid key file length: expected 32 bytes, got {}",
+                    bytes.len()
+                );
             }
-            
+
             let mut secret = [0u8; 32];
             secret.copy_from_slice(&bytes);
             Ok(Identity::from_bytes(&secret))
@@ -46,11 +49,11 @@ impl KeyStore {
     pub fn save(&self, identity: &Identity) -> Result<()> {
         let bytes = identity.to_bytes();
         fs::write(&self.key_path, bytes).context("Failed to write identity key file")?;
-        
+
         // In a production app, we would also set restrictive file permissions here (e.g., chmod 600)
         // Since Rust standard library's fs permissions are platform-specific and we're targeting Windows+Linux,
         // we'd use `std::os::unix::fs::PermissionsExt` conditionally for Linux.
-        
+
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

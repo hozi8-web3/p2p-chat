@@ -17,19 +17,20 @@ impl NetworkConfig {
     /// Binds a QUIC endpoint to the given address.
     pub fn bind(addr: SocketAddr) -> Result<Self> {
         let (server_config, client_config) = Self::generate_configs()?;
-        
+
         let mut endpoint = Endpoint::server(server_config, addr)?;
         endpoint.set_default_client_config(client_config);
-        
+
         Ok(Self { endpoint })
     }
 
     fn generate_configs() -> Result<(ServerConfig, ClientConfig)> {
         // Generate a self-signed cert just for the QUIC/TLS layer.
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
-        
+
         let cert_der = rustls::pki_types::CertificateDer::from(cert.cert.der().to_vec());
-        let private_key = rustls::pki_types::PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der());
+        let private_key =
+            rustls::pki_types::PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der());
         let private_key_der = PrivateKeyDer::from(private_key);
 
         let cert_chain = vec![cert_der];
@@ -40,20 +41,20 @@ impl NetworkConfig {
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(SkipServerVerification))
             .with_no_client_auth();
-            
+
         // We need to support ALPN
         client_crypto.alpn_protocols = vec![b"p2p-chat-v1".to_vec()];
 
         let mut server_crypto = rustls::ServerConfig::builder()
             .with_no_client_auth()
             .with_single_cert(cert_chain, private_key_der)?;
-            
+
         server_crypto.alpn_protocols = vec![b"p2p-chat-v1".to_vec()];
 
         let mut server_config = ServerConfig::with_crypto(Arc::new(server_crypto));
         let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
         transport_config.max_concurrent_bidi_streams(1024u32.into());
-        
+
         let mut client_config = ClientConfig::new(Arc::new(client_crypto));
         let mut transport = quinn::TransportConfig::default();
         transport.keep_alive_interval(Some(std::time::Duration::from_secs(10)));
@@ -98,7 +99,7 @@ impl rustls::client::danger::ServerCertVerifier for SkipServerVerification {
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
         Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
     }
-    
+
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
         vec![
             rustls::SignatureScheme::RSA_PKCS1_SHA256,

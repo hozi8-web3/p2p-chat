@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 pub struct EncryptedMessage {
     /// Incremental or random nonce to prevent replay attacks and ensure unique keystream.
     pub nonce: [u8; 12],
-    
+
     /// The AES-GCM or ChaCha20-Poly1305 ciphertext.
     pub ciphertext: Vec<u8>,
 }
@@ -48,11 +48,7 @@ impl EncryptedMessage {
 
     /// Decrypts the message using the shared symmetric key.
     /// Fails if the ciphertext was tampered with or if `associated_data` doesn't match.
-    pub fn decrypt(
-        &self,
-        key: &[u8; 32],
-        associated_data: &[u8],
-    ) -> Result<Vec<u8>> {
+    pub fn decrypt(&self, key: &[u8; 32], associated_data: &[u8]) -> Result<Vec<u8>> {
         let cipher_key = Key::from_slice(key);
         let cipher = ChaCha20Poly1305::new(cipher_key);
         let nonce = Nonce::from_slice(&self.nonce);
@@ -80,7 +76,7 @@ mod tests {
         let aad = b"sender-pk"; // E.g., authenticating the sender's public key
 
         let encrypted = EncryptedMessage::encrypt(&key, &nonce, message, aad).unwrap();
-        
+
         let decrypted = encrypted.decrypt(&key, aad).unwrap();
         assert_eq!(decrypted, message);
     }
@@ -94,7 +90,7 @@ mod tests {
         let aad2 = b"sender-pk-2";
 
         let encrypted = EncryptedMessage::encrypt(&key, &nonce, message, aad1).unwrap();
-        
+
         assert!(encrypted.decrypt(&key, aad2).is_err());
     }
 
@@ -106,11 +102,11 @@ mod tests {
         let aad = b"sender-pk";
 
         let mut encrypted = EncryptedMessage::encrypt(&key, &nonce, message, aad).unwrap();
-        
+
         // Flip a bit in the ciphertext
         let len = encrypted.ciphertext.len();
         encrypted.ciphertext[len - 1] ^= 0x01;
-        
+
         assert!(encrypted.decrypt(&key, aad).is_err());
     }
 }

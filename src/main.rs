@@ -1,7 +1,7 @@
 mod crypto;
+mod discovery;
 mod network;
 mod protocol;
-mod discovery;
 
 use anyhow::Result;
 use clap::Parser;
@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     // 2. Initialize the P2P Node
     // Channel for the UI to receive messages from the network layer
     let (message_tx, mut message_rx) = mpsc::channel(100);
-    
+
     let node = Node::new(identity.clone(), bind_addr, message_tx)?;
     let node = Arc::new(node);
 
@@ -52,9 +52,9 @@ async fn main() -> Result<()> {
     // 4. Initialize Local Peer Discovery (mDNS)
     // Extract actual bound port if 0 was passed
     let actual_port = args.port; // Needs refining to grab OS assigned port if 0, hardcoded for now or use specific ports.
-    
+
     let discovery = DiscoveryManager::new(hex::encode(identity.public_key().0))?;
-    
+
     if actual_port > 0 {
         if let Err(e) = discovery.start_broadcasting(actual_port) {
             error!("Failed to start mDNS broadcast: {}", e);

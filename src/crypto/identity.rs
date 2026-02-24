@@ -1,4 +1,4 @@
-use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey, Signature};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -16,7 +16,12 @@ pub struct PublicKey(pub [u8; 32]);
 
 impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PublicKey({}..{})", hex::encode(&self.0[..4]), hex::encode(&self.0[28..]))
+        write!(
+            f,
+            "PublicKey({}..{})",
+            hex::encode(&self.0[..4]),
+            hex::encode(&self.0[28..])
+        )
     }
 }
 
@@ -69,10 +74,10 @@ mod tests {
     fn test_identity_generation_and_signing() {
         let identity = Identity::generate();
         let pub_key = identity.public_key();
-        
+
         let message = b"hello world";
         let signature = identity.sign(message);
-        
+
         assert!(pub_key.verify(message, &signature));
         assert!(!pub_key.verify(b"wrong message", &signature));
     }
@@ -82,7 +87,7 @@ mod tests {
         let identity = Identity::generate();
         let bytes = identity.to_bytes();
         let restored = Identity::from_bytes(&bytes);
-        
+
         assert_eq!(identity.public_key().0, restored.public_key().0);
     }
 }

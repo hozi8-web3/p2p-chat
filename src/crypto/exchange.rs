@@ -32,7 +32,7 @@ pub fn derive_session_keys(
     // we derive 64 bytes of cryptographically strong key material.
     let hkdf = Hkdf::<Sha256>::new(None, shared_secret.as_bytes());
     let mut okm = [0u8; 64]; // Output Keying Material
-    
+
     // Use an application-specific info string to bind the key derivation context.
     hkdf.expand(b"p2p-chat-session-v1", &mut okm)
         .expect("HKDF expansion failed; this should never happen with valid length");
@@ -61,20 +61,20 @@ mod tests {
     fn test_dh_key_exchange_and_derivation() {
         // Alice generates her ephemeral keypair
         let (alice_secret, alice_public) = generate_ephemeral_keypair();
-        
+
         // Bob generates his ephemeral keypair
         let (bob_secret, bob_public) = generate_ephemeral_keypair();
 
         // Alice computes keys (she is the initiator)
         let (alice_tx, alice_rx) = derive_session_keys(alice_secret, &bob_public, true);
-        
+
         // Bob computes keys (he is the responder)
         let (bob_tx, bob_rx) = derive_session_keys(bob_secret, &alice_public, false);
 
         // Verification: Alice's TX key should be Bob's RX key, and vice versa.
         assert_eq!(alice_tx, bob_rx);
         assert_eq!(alice_rx, bob_tx);
-        
+
         // Ensure TX and RX keys are distinct from each other.
         assert_ne!(alice_tx, alice_rx);
     }
