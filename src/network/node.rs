@@ -127,7 +127,6 @@ impl Node {
             tx_key,
             rx_key,
             connection,
-            connection,
         )
         .await;
 
@@ -177,7 +176,6 @@ impl Node {
             their_payload.identity_pub_key,
             tx_key,
             rx_key,
-            connection,
             connection,
         )
         .await;
