@@ -11,10 +11,11 @@ use tokio::sync::{mpsc, Mutex};
 
 /// Represents an established and cryptographically verified peer connection.
 pub struct PeerConnection {
-    pub identity: PublicKey,
+    pub _identity: PublicKey,
     pub tx_key: [u8; 32],
-    pub rx_key: [u8; 32],
-    pub connection: Connection,
+    pub _rx_key: [u8; 32],
+    pub _send: SendStream,
+    pub _connection: Connection,
     /// We keep an incremental nonce count to prevent replay attacks.
     pub last_tx_nonce: u64,
 }
@@ -202,10 +203,11 @@ impl Node {
         );
 
         let peer_conn = Arc::new(Mutex::new(PeerConnection {
-            identity: peer_identity.clone(),
+            _identity: peer_identity.clone(),
             tx_key,
-            rx_key,
-            connection,
+            _rx_key: rx_key,
+            _send,
+            _connection: connection,
             last_tx_nonce: 0,
         }));
 

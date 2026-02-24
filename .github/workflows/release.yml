@@ -34,8 +34,7 @@ jobs:
 
       - name: Prepare Windows Asset
         run: |
-          cd target/x86_64-pc-windows-msvc/release
-          Compress-Archive -Path p2p-chat.exe -DestinationPath ..\..\..\..\p2p-chat-windows-amd64.zip
+          Compress-Archive -Path target\x86_64-pc-windows-msvc\release\p2p-chat.exe -DestinationPath p2p-chat-windows-amd64.zip
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
