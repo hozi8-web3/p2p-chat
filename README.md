@@ -61,4 +61,34 @@ sequenceDiagram
 
 ## Running the Application
 
-*(Instructions to be added once CLI is implemented)*
+This is a pure peer-to-peer chat application. To chat, you need at least two running nodes.
+
+### Local Network (Auto-Discovery)
+If both computers are on the same Wi-Fi or local network, the built-in `mDNS` module will automatically discover and connect them.
+
+**Terminal 1:**
+```bash
+# Start your node on a specific port
+cargo run --release -- --port 61899
+```
+
+**Terminal 2:**
+```bash
+# Start the second node on a different port
+cargo run --release -- --port 61900
+```
+*(They will automatically find each other and establish a secure, encrypted session!)*
+
+### Over the Internet (Manual Connect)
+If you are chatting with someone on a completely different network (e.g., across the internet), one of you must be reachable via a public IP address or a Virtual LAN (like Tailscale, ZeroTier, or Hamachi).
+
+**Host Node:**
+```bash
+cargo run --release -- --port 61899
+```
+
+**Connecting Node:**
+```bash
+# Connect directly to the Host's IP address and Port
+cargo run --release -- --port 61900 --connect <HOST_IP>:61899
+```

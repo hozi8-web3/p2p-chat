@@ -14,7 +14,7 @@ pub struct PeerConnection {
     pub _identity: PublicKey,
     pub tx_key: [u8; 32],
     pub _rx_key: [u8; 32],
-    pub _send: SendStream,
+    pub send: SendStream,
     pub connection: Connection,
     /// We keep an incremental nonce count to prevent replay attacks.
     pub last_tx_nonce: u64,
@@ -206,7 +206,7 @@ impl Node {
             _identity: peer_identity.clone(),
             tx_key,
             _rx_key: rx_key,
-            _send,
+            send: _send,
             connection,
             last_tx_nonce: 0,
         }));
@@ -304,12 +304,10 @@ impl Node {
             ) {
                 Ok(encrypted_msg) => {
                     if let Ok(serialized) = bincode::serialize(&encrypted_msg) {
-                        // Open a new quick unidirectional stream for sending this message
-                        if let Ok(mut send) = peer.connection.open_uni().await {
-                            let len = serialized.len() as u32;
-                            let _ = send.write_all(&len.to_be_bytes()).await;
-                            let _ = send.write_all(&serialized).await;
-                        }
+                        // Publish over the active bi-directional stream
+                        let len = serialized.len() as u32;
+                        let _ = peer.send.write_all(&len.to_be_bytes()).await;
+                        let _ = peer.send.write_all(&serialized).await;
                     }
                 }
                 Err(e) => eprintln!("Failed to encrypt message for {:?}: {}", pubkey_bytes, e),

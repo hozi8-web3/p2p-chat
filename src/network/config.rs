@@ -49,14 +49,19 @@ impl NetworkConfig {
 
         server_crypto.alpn_protocols = vec![b"p2p-chat-v1".to_vec()];
 
+        let mut transport = quinn::TransportConfig::default();
+        transport.max_concurrent_bidi_streams(1024u32.into());
+        // Disable idle timeout to prevent "Connection closed" when not actively typing.
+        transport.max_idle_timeout(None);
+        transport.keep_alive_interval(Some(std::time::Duration::from_secs(5)));
+        
+        let transport_arc = Arc::new(transport);
+
         let mut server_config = ServerConfig::with_crypto(Arc::new(server_crypto));
-        let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
-        transport_config.max_concurrent_bidi_streams(1024u32.into());
+        server_config.transport = Arc::clone(&transport_arc);
 
         let mut client_config = ClientConfig::new(Arc::new(client_crypto));
-        let mut transport = quinn::TransportConfig::default();
-        transport.keep_alive_interval(Some(std::time::Duration::from_secs(10)));
-        client_config.transport_config(Arc::new(transport));
+        client_config.transport_config(transport_arc);
 
         Ok((server_config, client_config))
     }
