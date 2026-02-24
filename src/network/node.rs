@@ -15,7 +15,7 @@ pub struct PeerConnection {
     pub tx_key: [u8; 32],
     pub _rx_key: [u8; 32],
     pub _send: SendStream,
-    pub _connection: Connection,
+    pub connection: Connection,
     /// We keep an incremental nonce count to prevent replay attacks.
     pub last_tx_nonce: u64,
 }
@@ -207,7 +207,7 @@ impl Node {
             tx_key,
             _rx_key: rx_key,
             _send,
-            _connection: connection,
+            connection,
             last_tx_nonce: 0,
         }));
 
