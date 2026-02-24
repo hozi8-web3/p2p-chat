@@ -8,7 +8,6 @@ use clap::Parser;
 use crypto::KeyStore;
 use discovery::DiscoveryManager;
 use network::Node;
-use protocol::EncryptedMessage;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt, BufReader};

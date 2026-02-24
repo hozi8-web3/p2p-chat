@@ -1,4 +1,4 @@
-use crate::crypto::{Identity, PublicKey};
+use serde::{Deserialize, Serialize, Serializer, Deserializer};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 use x25519_dalek::PublicKey as X25519PublicKey;
@@ -17,7 +17,33 @@ pub struct HandshakePayload {
 
     /// Signature over the ephemeral public key to prove ownership.
     /// The signature must be created by the private key corresponding to `identity_pub_key`.
+    #[serde(with = "signature_hex")]
     pub signature: Signature,
+}
+
+mod signature_hex {
+    use super::*;
+    use serde::de::Error;
+    
+    pub fn serialize<S>(sig: &Signature, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(&sig.to_bytes())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Signature, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        let mut arr = [0u8; 64];
+        if bytes.len() != 64 {
+            return Err(D::Error::custom("Signature length must be 64 bytes"));
+        }
+        arr.copy_from_slice(&bytes);
+        Ok(Signature::from_bytes(&arr))
+    }
 }
 
 impl HandshakePayload {

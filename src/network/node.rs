@@ -75,12 +75,11 @@ impl Node {
         Ok(())
     }
 
-    async fn handle_incoming_connection(&self, connection: Connection) -> Result<()> {
+    async fn handle_incoming_connection(self: Arc<Self>, connection: Connection) -> Result<()> {
         // Accept the first bi-directional stream for the handshake
-        let (mut send, mut recv) = connection.accept_bi().await?;
-
-        self.perform_handshake_as_responder(connection, send, recv)
-            .await?;
+        let (send, recv) = connection.accept_bi().await?;
+        
+        self.perform_handshake_as_responder(connection, send, recv).await?;
         Ok(())
     }
 
@@ -194,7 +193,7 @@ impl Node {
         tx_key: [u8; 32],
         rx_key: [u8; 32],
         connection: Connection,
-        send: SendStream,
+        _send: SendStream,
         recv: RecvStream,
     ) {
         println!(

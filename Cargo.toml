@@ -14,7 +14,7 @@ quinn = "0.11"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 
 # Cryptography
-ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
 x25519-dalek = { version = "2.0", features = ["static_secrets"] }
 chacha20poly1305 = "0.10"
 hkdf = "0.12"
@@ -34,3 +34,4 @@ dirs = "5.0"
 hex = "0.4.3"
 rcgen = "0.14.7"
 mdns-sd = "0.18.0"
+serde_with = "3.16.1"

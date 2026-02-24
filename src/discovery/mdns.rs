@@ -54,7 +54,7 @@ impl DiscoveryManager {
             while let Ok(event) = receiver.recv_async().await {
                 if let ServiceEvent::ServiceResolved(info) = event {
                     // Ignore our own broadcast
-                    let is_me = info.get_properties().get("pubkey") == Some(&my_identity_clone);
+                    let is_me = info.get_properties().get("pubkey").map(|prop| prop.val_str()) == Some(&my_identity_clone);
                     if !is_me {
                         // Extract IP and Port
                         if let Some(ip) = info.get_addresses().iter().next() {
