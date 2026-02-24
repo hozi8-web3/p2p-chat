@@ -68,7 +68,7 @@ impl Node {
         let connection = self.endpoint.connect(addr, "localhost")?.await?;
 
         // Open a bi-directional stream for the handshake
-        let (mut send, mut recv) = connection.open_bi().await?;
+        let (send, recv) = connection.open_bi().await?;
 
         self.perform_handshake_as_initiator(connection, send, recv)
             .await?;

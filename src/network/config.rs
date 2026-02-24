@@ -1,6 +1,5 @@
 use anyhow::Result;
 use quinn::{ClientConfig, Endpoint, ServerConfig};
-use rustls::{Certificate, PrivateKey};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -28,8 +27,8 @@ impl NetworkConfig {
         // Generate a self-signed cert just for the QUIC/TLS layer.
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
 
-        let cert_der = rustls::Certificate(cert.serialize_der()?);
-        let private_key = rustls::PrivateKey(cert.serialize_private_key_der());
+        let cert_der = rustls::Certificate(cert.cert.der().to_vec());
+        let private_key = rustls::PrivateKey(cert.key_pair.serialize_der());
 
         let cert_chain = vec![cert_der];
 

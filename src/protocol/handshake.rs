@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize, Serializer, Deserializer};
+use crate::crypto::{Identity, PublicKey};
 use ed25519_dalek::Signature;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer, Deserializer};
 use x25519_dalek::PublicKey as X25519PublicKey;
 
 /// The initial handshake packet sent by both peers immediately after the QUIC

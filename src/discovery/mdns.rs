@@ -58,8 +58,10 @@ impl DiscoveryManager {
                     if !is_me {
                         // Extract IP and Port
                         if let Some(ip) = info.get_addresses().iter().next() {
-                            let addr = SocketAddr::new(*ip, info.get_port());
-                            let _ = peer_tx.send(addr).await;
+                            if let Ok(ip_addr) = ip.to_string().parse::<std::net::IpAddr>() {
+                                let addr = SocketAddr::new(ip_addr, info.get_port());
+                                let _ = peer_tx.send(addr).await;
+                            }
                         }
                     }
                 }
