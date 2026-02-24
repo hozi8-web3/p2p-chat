@@ -14,7 +14,6 @@ pub struct PeerConnection {
     pub _identity: PublicKey,
     pub tx_key: [u8; 32],
     pub _rx_key: [u8; 32],
-    pub send: SendStream,
     pub connection: Connection,
     /// We keep an incremental nonce count to prevent replay attacks.
     pub last_tx_nonce: u64,
@@ -128,8 +127,7 @@ impl Node {
             tx_key,
             rx_key,
             connection,
-            send,
-            recv,
+            connection,
         )
         .await;
 
@@ -180,8 +178,7 @@ impl Node {
             tx_key,
             rx_key,
             connection,
-            send,
-            recv,
+            connection,
         )
         .await;
 
@@ -194,8 +191,6 @@ impl Node {
         tx_key: [u8; 32],
         rx_key: [u8; 32],
         connection: Connection,
-        _send: SendStream,
-        recv: RecvStream,
     ) {
         println!(
             "Successfully established secure session with peer {:?}",
@@ -206,8 +201,7 @@ impl Node {
             _identity: peer_identity.clone(),
             tx_key,
             _rx_key: rx_key,
-            send: _send,
-            connection,
+            connection: connection.clone(),
             last_tx_nonce: 0,
         }));
 
@@ -220,7 +214,7 @@ impl Node {
         let node_clone = Arc::clone(&self);
         tokio::spawn(async move {
             node_clone
-                .listen_for_messages(peer_identity, rx_key, recv)
+                .listen_for_messages(peer_identity, rx_key, connection)
                 .await;
         });
     }
@@ -229,55 +223,60 @@ impl Node {
         self: Arc<Self>,
         peer_identity: PublicKey,
         rx_key: [u8; 32],
-        mut recv: RecvStream,
+        connection: Connection,
     ) {
-        loop {
-            // Read 4-byte length prefix
-            let mut len_buf = [0u8; 4];
-            if recv.read_exact(&mut len_buf).await.is_err() {
-                println!("Connection with {:?} closed.", peer_identity);
-                self.peers.lock().await.remove(&peer_identity.0);
-                break;
-            }
+        // Continuously accept new unidirectional streams meant for text messages
+        while let Ok(mut recv) = connection.accept_uni().await {
+            let node_clone = Arc::clone(&self);
+            let peer_id_clone = peer_identity.clone();
+            
+            tokio::spawn(async move {
+                // Read 4-byte length prefix
+                let mut len_buf = [0u8; 4];
+                if recv.read_exact(&mut len_buf).await.is_err() {
+                    return;
+                }
 
-            let len = u32::from_be_bytes(len_buf) as usize;
+                let len = u32::from_be_bytes(len_buf) as usize;
 
-            // Limit message size to something sane (e.g. 10MB) to prevent OOM DoS
-            if len > 10 * 1024 * 1024 {
-                eprintln!("Message too large from {:?}", peer_identity);
-                break;
-            }
+                // Limit message size to something sane (e.g. 10MB) to prevent OOM DoS
+                if len > 10 * 1024 * 1024 {
+                    eprintln!("Message too large from {:?}", peer_id_clone);
+                    return;
+                }
 
-            let mut msg_buf = vec![0u8; len];
-            if recv.read_exact(&mut msg_buf).await.is_err() {
-                break;
-            }
+                let mut msg_buf = vec![0u8; len];
+                if recv.read_exact(&mut msg_buf).await.is_err() {
+                    return;
+                }
 
-            // Deserialize EncryptedMessage format
-            match bincode::deserialize::<EncryptedMessage>(&msg_buf) {
-                Ok(encrypted_msg) => {
-                    // Authenticate and Decrypt
-                    // We bind the AAD to the sender's public key to prevent messages from
-                    // being shifted across different peers (cross-peer replay).
-                    match encrypted_msg.decrypt(&rx_key, &peer_identity.0) {
-                        Ok(plaintext) => {
-                            // Forward the decrypted message to the app's UI/Event-loop
-                            let _ = self
-                                .message_tx
-                                .send((peer_identity.clone(), plaintext))
-                                .await;
-                        }
-                        Err(e) => {
-                            eprintln!(
-                                "AEAD Decryption failed for message from {:?}: {}",
-                                peer_identity, e
-                            );
+                // Deserialize EncryptedMessage format
+                match bincode::deserialize::<EncryptedMessage>(&msg_buf) {
+                    Ok(encrypted_msg) => {
+                        // Authenticate and Decrypt
+                        match encrypted_msg.decrypt(&rx_key, &peer_id_clone.0) {
+                            Ok(plaintext) => {
+                                // Forward the decrypted message to the app's UI/Event-loop
+                                let _ = node_clone
+                                    .message_tx
+                                    .send((peer_id_clone.clone(), plaintext))
+                                    .await;
+                            }
+                            Err(e) => {
+                                eprintln!(
+                                    "AEAD Decryption failed for message from {:?}: {}",
+                                    peer_id_clone, e
+                                );
+                            }
                         }
                     }
+                    Err(e) => eprintln!("Malformed message packet from {:?}: {}", peer_id_clone, e),
                 }
-                Err(e) => eprintln!("Malformed message packet from {:?}: {}", peer_identity, e),
-            }
+            });
         }
+        
+        println!("Connection with {:?} closed.", peer_identity);
+        self.peers.lock().await.remove(&peer_identity.0);
     }
 
     /// Broadcasts a message to all connected and verified peers.
@@ -304,10 +303,12 @@ impl Node {
             ) {
                 Ok(encrypted_msg) => {
                     if let Ok(serialized) = bincode::serialize(&encrypted_msg) {
-                        // Publish over the active bi-directional stream
-                        let len = serialized.len() as u32;
-                        let _ = peer.send.write_all(&len.to_be_bytes()).await;
-                        let _ = peer.send.write_all(&serialized).await;
+                        // Open a new quick unidirectional stream for sending this message
+                        if let Ok(mut send) = peer.connection.open_uni().await {
+                            let len = serialized.len() as u32;
+                            let _ = send.write_all(&len.to_be_bytes()).await;
+                            let _ = send.write_all(&serialized).await;
+                        }
                     }
                 }
                 Err(e) => eprintln!("Failed to encrypt message for {:?}: {}", pubkey_bytes, e),
