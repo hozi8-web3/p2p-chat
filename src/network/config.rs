@@ -1,6 +1,6 @@
 use anyhow::Result;
 use quinn::{ClientConfig, Endpoint, ServerConfig};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::{Certificate, PrivateKey};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -28,17 +28,15 @@ impl NetworkConfig {
         // Generate a self-signed cert just for the QUIC/TLS layer.
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
 
-        let cert_der = rustls::pki_types::CertificateDer::from(cert.cert.der().to_vec());
-        let private_key =
-            rustls::pki_types::PrivatePkcs8KeyDer::from(cert.key_pair.serialize_der());
-        let private_key_der = PrivateKeyDer::from(private_key);
+        let cert_der = rustls::Certificate(cert.serialize_der()?);
+        let private_key = rustls::PrivateKey(cert.serialize_private_key_der());
 
         let cert_chain = vec![cert_der];
 
         // Ensure we bypass standard certificate validation since this is P2P.
         // We will authenticate peers using our own Ed25519 signatures inside the QUIC stream.
         let mut client_crypto = rustls::ClientConfig::builder()
-            .dangerous()
+            .with_safe_defaults()
             .with_custom_certificate_verifier(Arc::new(SkipServerVerification))
             .with_no_client_auth();
 
@@ -46,8 +44,9 @@ impl NetworkConfig {
         client_crypto.alpn_protocols = vec![b"p2p-chat-v1".to_vec()];
 
         let mut server_crypto = rustls::ServerConfig::builder()
+            .with_safe_defaults()
             .with_no_client_auth()
-            .with_single_cert(cert_chain, private_key_der)?;
+            .with_single_cert(cert_chain, private_key)?;
 
         server_crypto.alpn_protocols = vec![b"p2p-chat-v1".to_vec()];
 
@@ -70,41 +69,16 @@ impl NetworkConfig {
 #[derive(Debug)]
 struct SkipServerVerification;
 
-impl rustls::client::danger::ServerCertVerifier for SkipServerVerification {
+impl rustls::client::ServerCertVerifier for SkipServerVerification {
     fn verify_server_cert(
         &self,
-        _end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _server_name: &rustls::pki_types::ServerName<'_>,
+        _end_entity: &rustls::Certificate,
+        _intermediates: &[rustls::Certificate],
+        _server_name: &rustls::ServerName,
+        _scts: &mut dyn Iterator<Item = &[u8]>,
         _ocsp_response: &[u8],
-        _now: rustls::pki_types::UnixTime,
-    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::danger::ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        vec![
-            rustls::SignatureScheme::RSA_PKCS1_SHA256,
-            rustls::SignatureScheme::ED25519,
-            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
-        ]
+        _now: std::time::SystemTime,
+    ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::ServerCertVerified::assertion())
     }
 }

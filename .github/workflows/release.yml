@@ -13,18 +13,7 @@ permissions:
 jobs:
   build-and-release:
     name: Build & Release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: p2p-chat-linux-amd64
-            asset_name: p2p-chat-linux-amd64.tar.gz
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: p2p-chat.exe
-            asset_name: p2p-chat-windows-amd64.zip
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -33,31 +22,24 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-pc-windows-msvc
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.target }}
+          key: x86_64-pc-windows-msvc
 
       - name: Build Release
-        run: cargo build --locked --release --target ${{ matrix.target }}
-
-      - name: Prepare Linux Asset
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cd target/${{ matrix.target }}/release
-          tar -czvf ../../../../${{ matrix.asset_name }} p2p-chat
+        run: cargo build --locked --release --target x86_64-pc-windows-msvc
 
       - name: Prepare Windows Asset
-        if: matrix.os == 'windows-latest'
         run: |
-          cd target/${{ matrix.target }}/release
-          Compress-Archive -Path p2p-chat.exe -DestinationPath ..\..\..\..\${{ matrix.asset_name }}
+          cd target/x86_64-pc-windows-msvc/release
+          Compress-Archive -Path p2p-chat.exe -DestinationPath ..\..\..\..\p2p-chat-windows-amd64.zip
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ matrix.asset_name }}
+          files: p2p-chat-windows-amd64.zip
           # Use GITHUB_TOKEN automatically provided by Actions
           token: ${{ secrets.GITHUB_TOKEN }}
