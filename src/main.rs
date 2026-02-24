@@ -24,6 +24,10 @@ struct Args {
     /// Optional specific peer to connect to on startup (IP:PORT)
     #[arg(short, long)]
     connect: Option<SocketAddr>,
+
+    /// Internal developer suffix for running multiple nodes locally without identity clashing
+    #[arg(long)]
+    id: Option<String>,
 }
 
 #[tokio::main]
@@ -34,7 +38,7 @@ async fn main() -> Result<()> {
     let bind_addr: SocketAddr = format!("0.0.0.0:{}", args.port).parse()?;
 
     // 1. Initialize Crypto Identity
-    let keystore = KeyStore::new()?;
+    let keystore = KeyStore::new(args.id)?;
     let identity = keystore.load_or_generate()?;
     println!("My Identity (Ed25519 PubKey): {:?}", identity.public_key());
 
@@ -92,7 +96,7 @@ async fn main() -> Result<()> {
                 match line_result {
                     Ok(Some(line)) if !line.trim().is_empty() => {
                         // Broadcast message to all connected peers
-                        node.broadcast_message(line.as_bytes()).await;
+                        Arc::clone(&node).broadcast_message(line.as_bytes()).await;
                         println!("You: {}", line);
                     }
                     Ok(None) => break, // EOF (Ctrl+D)

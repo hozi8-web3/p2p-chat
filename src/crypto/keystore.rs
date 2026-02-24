@@ -12,7 +12,7 @@ pub struct KeyStore {
 
 impl KeyStore {
     /// Initializes the keystore, returning the path to the key file.
-    pub fn new() -> Result<Self> {
+    pub fn new(suffix: Option<String>) -> Result<Self> {
         let mut path = dirs::data_local_dir().context("Failed to find local data directory")?;
         path.push(APP_DIR);
 
@@ -20,7 +20,12 @@ impl KeyStore {
             fs::create_dir_all(&path).context("Failed to create app data directory")?;
         }
 
-        path.push(KEY_FILE);
+        let filename = match suffix {
+            Some(s) => format!("identity_{}.key", s),
+            None => KEY_FILE.to_string(),
+        };
+
+        path.push(filename);
         Ok(Self { key_path: path })
     }
 

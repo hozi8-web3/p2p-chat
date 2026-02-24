@@ -278,39 +278,45 @@ impl Node {
     }
 
     /// Broadcasts a message to all connected and verified peers.
-    pub async fn broadcast_message(&self, message: &[u8]) {
+    pub async fn broadcast_message(self: Arc<Self>, message: &[u8]) {
         let peers_map = self.peers.lock().await;
 
         for (pubkey_bytes, peer_mtx) in peers_map.iter() {
-            let mut peer = peer_mtx.lock().await;
+            let peer_mtx_clone = Arc::clone(peer_mtx);
+            let message_clone = message.to_vec();
+            let pubkey_clone = pubkey_bytes.clone();
+            let my_pubkey = self.identity.public_key().0;
 
-            peer.last_tx_nonce += 1;
+            tokio::spawn(async move {
+                let mut peer = peer_mtx_clone.lock().await;
+                peer.last_tx_nonce += 1;
 
-            // Construct a unique 12-byte nonce (8 bytes counter + 4 bytes random helps prevent collision if state is lost)
-            let mut nonce = [0u8; 12];
-            nonce[0..8].copy_from_slice(&peer.last_tx_nonce.to_le_bytes());
-            rand::thread_rng().fill_bytes(&mut nonce[8..12]);
+                // Construct a unique 12-byte nonce (8 bytes counter + 4 bytes random helps prevent collision if state is lost)
+                let mut nonce = [0u8; 12];
+                nonce[0..8].copy_from_slice(&peer.last_tx_nonce.to_le_bytes());
+                rand::thread_rng().fill_bytes(&mut nonce[8..12]);
 
-            // Encrypt using our identity as AAD.
-            // The receiver expects the AAD to be the sender's (our) public key.
-            match EncryptedMessage::encrypt(
-                &peer.tx_key,
-                &nonce,
-                message,
-                &self.identity.public_key().0,
-            ) {
-                Ok(encrypted_msg) => {
-                    if let Ok(serialized) = bincode::serialize(&encrypted_msg) {
-                        // Open a new quick unidirectional stream for sending this message
-                        if let Ok(mut send) = peer.connection.open_uni().await {
-                            let len = serialized.len() as u32;
-                            let _ = send.write_all(&len.to_be_bytes()).await;
-                            let _ = send.write_all(&serialized).await;
+                // Encrypt using our identity as AAD.
+                // The receiver expects the AAD to be the sender's (our) public key.
+                match EncryptedMessage::encrypt(
+                    &peer.tx_key,
+                    &nonce,
+                    &message_clone,
+                    &my_pubkey,
+                ) {
+                    Ok(encrypted_msg) => {
+                        if let Ok(serialized) = bincode::serialize(&encrypted_msg) {
+                            // Open a new quick unidirectional stream for sending this message
+                            if let Ok(mut send) = peer.connection.open_uni().await {
+                                let len = serialized.len() as u32;
+                                let _ = send.write_all(&len.to_be_bytes()).await;
+                                let _ = send.write_all(&serialized).await;
+                            }
                         }
                     }
+                    Err(e) => eprintln!("Failed to encrypt message for {:?}: {}", pubkey_clone, e),
                 }
-                Err(e) => eprintln!("Failed to encrypt message for {:?}: {}", pubkey_bytes, e),
-            }
+            });
         }
     }
 }

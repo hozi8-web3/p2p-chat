@@ -66,18 +66,20 @@ This is a pure peer-to-peer chat application. To chat, you need at least two run
 ### Local Network (Auto-Discovery)
 If both computers are on the same Wi-Fi or local network, the built-in `mDNS` module will automatically discover and connect them.
 
-**Terminal 1:**
+**Terminal 1 (Alice):**
 ```bash
-# Start your node on a specific port
-cargo run --release -- --port 61899
+# Start your node on a specific port and assign a unique identity suffix
+cargo run --release -- --port 61899 --id alice
 ```
 
-**Terminal 2:**
+**Terminal 2 (Bob):**
 ```bash
-# Start the second node on a different port
-cargo run --release -- --port 61900
+# Start the second node on a different port with a different identity suffix
+cargo run --release -- --port 61900 --id bob
 ```
 *(They will automatically find each other and establish a secure, encrypted session!)*
+
+**Note on Local Testing:** If you run multiple instances on the exact same computer without the `--id` flag, they will all share the exact same `identity.key` file from your `AppData`. The P2P network will see them as the same person and overwrite their connections, preventing 3+ node communication. **Always use `--id [name]` when testing locally!**
 
 ### Over the Internet (Manual Connect)
 If you are chatting with someone on a completely different network (e.g., across the internet), one of you must be reachable via a public IP address or a Virtual LAN (like Tailscale, ZeroTier, or Hamachi).
